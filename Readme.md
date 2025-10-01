@@ -1,4 +1,4 @@
-# Youtube Clone
+# Youtube Clone (in development)
 
 This is a simple yet interesting backend project on Youtube Clone
 
