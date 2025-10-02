@@ -13,11 +13,17 @@ app.use(cors({
 
 app.use(express.json({limit: "16kb"})) //middleware to allow json requests and also a custom limit is set to accept limited json in order to avoid server crashouts
 app.use(express.urlencoded({extended: true, limit:"16kb"})) // uses encoder to encode URLs
-app.use(express.static("public")) // middleware to store static stuff like images,favicon in backend itself stored in public folder
+app.use(express.static("public")) //*middleware to store static stuff like images,favicon in backend itself stored in public folder
 
-//cookie-parser similar to cors is 3rd party middleware and not included in express
+//*cookie-parser similar to cors is 3rd party middleware and not included in express
 app.use(cookieParser())
 
+//routes import
+import userRouter from './routes/user.routes.js'
+
+//routes declaration
+//*since we have separated routes and controllers folders,so we need to use middleware to use routes
+app.use("/api/v1/users", userRouter ) //? http://localhost:<port>/api/v1/users/<route>
 
 
 export { app } 
