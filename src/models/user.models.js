@@ -32,41 +32,43 @@ const userSchema = new Schema(
     coverImage: {
       type: String, //Cloudinary url
     },
-    watchHistory: {
-      type: Schema.Types.ObjectId,
-      ref: "Video",
-    },
+    watchHistory: [
+        {
+        type: Schema.Types.ObjectId,
+        ref: "Video",
+      }
+    ],
     password: {
       type: String,
       required: [true, "Password is required"],
     },
     refreshToken: {
       type: String,
-    },
+    }
   },
   { timestamps: true }
-);
+)
 
-userSchema.pre("Save", async function (next) {
+userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next(); //executes password encrypt & save only when password field is modified
   this.password = await bcrypt.hash(this.password, 10); //hashes(via bcrypt plugin) and saves the password
-  next();
-});
+  next()
+})
 
 //declaring a custom method to check if the password is correct
 // syntax ==>  userSchema.methods.<method name> = async function ( <parameter to check> ) { <logic> }
 
-userSchema.methods.isPasswordCorrect = async function (password) {
+userSchema.methods.isPasswordCorrect = async function (password) { //this is a method
   return await bcrypt.compare(password, this.password); //bcrypt plugin itself compares the previously encrypted password and freshly recieved password and checks if the password is correct(returns a boolean)hence completing a logic
-};
+}
 
-userSchema.methods.generateAccessToken = function (){
+userSchema.methods.generateAccessToken = function (){ //this is a method
     return jwt.sign(
         {
             _id: this._id,
             email: this.email,
             username: this.username,
-            fullName: this.fullName,
+            fullName: this.fullName
         },
         process.env.ACCESS_TOKEN_SECRET,
         {
@@ -75,7 +77,7 @@ userSchema.methods.generateAccessToken = function (){
     )
 }
 
-userSchema.methods.generateRefreshTokens = function (){
+userSchema.methods.generateRefreshToken = function (){ //this is a method
     return jwt.sign(
         {
             _id: this._id,
