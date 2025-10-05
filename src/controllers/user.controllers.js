@@ -5,6 +5,7 @@ import { User } from "../models/user.models.js";
 import jwt from "jsonwebtoken"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import {ApiResponse} from '../utils/ApiResponse.js'
+import mongoose from "mongoose";
 
 //declaring a separate re-usable method for generating access and refresh tokens
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -163,8 +164,8 @@ const logoutUser = asyncHandler (async (req,res) => {
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            $set:{
-                refreshToken: undefined
+            $unset:{
+                refreshToken: 1
             }
         },
         {

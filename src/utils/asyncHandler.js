@@ -1,4 +1,4 @@
-
+import mongoose from "mongoose";
 //(In this middleware) This is a higher order function which can accept other functions as parameter
 // this is a wrapper class to handle incoming requests (reusable)
 
