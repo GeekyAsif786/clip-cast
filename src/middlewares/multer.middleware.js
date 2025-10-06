@@ -14,7 +14,7 @@ const storage = multer.diskStorage({
   }
 })
 
-// 🔹 File filter to validate file types
+//  File filter to validate file types
 const fileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
 
@@ -22,7 +22,7 @@ const fileFilter = (req, file, cb) => {
   const videoFormats = [".mp4", ".mov", ".avi", ".mkv"];
   const imageFormats = [".jpg", ".jpeg", ".png", ".webp"];
 
-  // 🔹 Check the field name to apply specific validation
+  // Check the field name to apply specific validation
   if (file.fieldname === "videoFile") {
     if (!videoFormats.includes(ext)) {
       return cb(new Error("Only video formats (.mp4, .mov, .avi, .mkv) are allowed"), false);
