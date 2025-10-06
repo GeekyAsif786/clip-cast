@@ -49,7 +49,6 @@ const publishAVideo = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Thumbnail Upload failed")
     }
 
-    
 
     const video = await Video.create({
         title,
@@ -131,7 +130,6 @@ const getVideoById = asyncHandler(async (req, res) => {
     if(!video || video ===""){
         throw new ApiError(404, "Video not found")
     }
-    console.log("Video returns this o/p: ",video)
     res
     .status(200)
     .json(
@@ -141,6 +139,7 @@ const getVideoById = asyncHandler(async (req, res) => {
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+
     //TODO: update video details like title, description, thumbnail
 
 })
@@ -154,7 +153,6 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
 })
 
-//exporting all the methods
 export {
     getAllVideos,
     publishAVideo,
