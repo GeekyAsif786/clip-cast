@@ -18,7 +18,6 @@ const getAllVideos = asyncHandler(async (req, res) => {
 const publishAVideo = asyncHandler(async (req, res) => {
     const { title, description} = req.body
     const owner = req.user._id
-    // TODO: get video, upload to cloudinary, create video
     ////check for title and description
     ////use multer to get the video and thumbnail
     ////check if the video and thumbnail are succesfully delivered to localpath
@@ -139,7 +138,6 @@ const getVideoById = asyncHandler(async (req, res) => {
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
-    //TODO: update video details like title, description, thumbnail
     const { videoId } = req.params
     const findVideo = await Video.findById(videoId)
     
