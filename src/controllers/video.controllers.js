@@ -4,7 +4,8 @@ import {User} from "../models/user.models.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
-import {uploadOnCloudinary} from "../utils/cloudinary.js"
+import {uploadOnCloudinary,deleteImageFromCloudinary} from "../utils/cloudinary.js"
+import { upload } from "../middlewares/multer.middleware.js"
 
 
 const getAllVideos = asyncHandler(async (req, res) => {
@@ -61,12 +62,13 @@ const publishAVideo = asyncHandler(async (req, res) => {
     })
 
     const createdVideo = await Video.findById(video._id)
+    console.log(createdVideo)
     if(!createdVideo){
         throw new ApiError(500, "Something went wrong while uploading the Video")
     }
 
     return res.status(201).json(
-        new ApiResponse(200,createdVideo,"Video Uploaded Successfully")
+        new ApiResponse(200,video,"Video Uploaded Successfully")
     )
 })
 
@@ -122,9 +124,8 @@ const getVideoBySearch = asyncHandler (async (req,res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: get video by id
     if(req.params === ""){
-        throw new ApiError(400, "Search field cannot be empty")
+        throw new ApiError(204, "field cannot be empty")
     }
     const video = await Video.findById(videoId)
     if(!video || video ===""){
@@ -138,9 +139,56 @@ const getVideoById = asyncHandler(async (req, res) => {
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
-    const { videoId } = req.params
-
     //TODO: update video details like title, description, thumbnail
+    const { videoId } = req.params
+    const findVideo = await Video.findById(videoId)
+    
+    const owner = await req.user._id
+    if(!findVideo){
+        throw new ApiError(404,"Video not found")
+    }
+    const { newTitle, newDescription } = req.body
+    const newThumbnailLocalPath = req.file?.path;
+    //const newThumbnail = await uploadOnCloudinary(newThumbnailLocalPath)
+    let newThumbnail;
+    if(newThumbnailLocalPath){
+        newThumbnail = await uploadOnCloudinary(newThumbnailLocalPath)
+        if(!newThumbnail.url){
+            throw new ApiError(500,"Thumbnail upload failed, kindly retry")
+        }
+        if (findVideo.thumbnail) {
+        try {
+            const publicId = findVideo.thumbnail.split('/').pop().split('.')[0];
+            await deleteImageFromCloudinary(publicId);
+        } 
+        catch (err) {
+            console.warn("Failed to delete old thumbnail:", err.message);
+        }
+    }
+    }
+    
+    // Delete old thumbnail safely AFTER new upload succeeds
+    if(!newTitle && !newDescription && !newThumbnailLocalPath){
+        throw new ApiError(400,"All fields can't be empty")
+    }
+    const updateFields = {
+
+    };
+    if(newThumbnail) updateFields.thumbnail = newThumbnail.url; 
+    if (newTitle) updateFields.title = newTitle;
+    if (newDescription) updateFields.description = newDescription;
+
+    const video = await Video.findByIdAndUpdate(
+        videoId,
+        { $set: updateFields },
+        { new: true }
+    );
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200,video,"Video details updated successfully")
+    )
 
 })
 
