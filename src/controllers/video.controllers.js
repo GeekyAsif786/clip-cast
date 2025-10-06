@@ -154,6 +154,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
 })
 
+//exporting all the methods
 export {
     getAllVideos,
     publishAVideo,
