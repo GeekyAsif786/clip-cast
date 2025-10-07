@@ -4,7 +4,7 @@ import {User} from "../models/user.models.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
-import {uploadOnCloudinary,deleteImageFromCloudinary} from "../utils/cloudinary.js"
+import {uploadOnCloudinary,deleteImageFromCloudinary,deleteVideoFromCloudinary} from "../utils/cloudinary.js"
 import { upload } from "../middlewares/multer.middleware.js"
 
 
@@ -70,7 +70,6 @@ const publishAVideo = asyncHandler(async (req, res) => {
         new ApiResponse(200,video,"Video Uploaded Successfully")
     )
 })
-
 
 const getVideoBySearch = asyncHandler (async (req,res) => {
     // Extract query params with defaults
@@ -155,6 +154,7 @@ const updateVideo = asyncHandler(async (req, res) => {
             throw new ApiError(500,"Thumbnail upload failed, kindly retry")
         }
         if (findVideo.thumbnail) {
+            // Delete old thumbnail safely AFTER new upload succeeds
         try {
             const publicId = findVideo.thumbnail.split('/').pop().split('.')[0];
             await deleteImageFromCloudinary(publicId);
@@ -165,7 +165,6 @@ const updateVideo = asyncHandler(async (req, res) => {
     }
     }
     
-    // Delete old thumbnail safely AFTER new upload succeeds
     if(!newTitle && !newDescription && !newThumbnailLocalPath){
         throw new ApiError(400,"All fields can't be empty")
     }
@@ -192,11 +191,79 @@ const updateVideo = asyncHandler(async (req, res) => {
 
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    //TODO: delete video
+    if(!videoId){
+        throw new ApiError(400,"Params are empty")
+    }
+    const video = await Video.findById(videoId)
+    if(!video){
+        throw new ApiError(404,"Video not found")
+    }
+    if(!(video.owner.toString() === req.user._id.toString())){
+        throw new ApiError(401,"Unauthorized Request")
+    }
+    const videoPublicId = video.videoFile.split('/').pop().split('.')[0];
+    const thumbnailPublicId = video.thumbnail.split('/').pop().split('.')[0];
+    try {
+        await deleteImageFromCloudinary(thumbnailPublicId)
+    } 
+    catch (error) {
+        console.log("Deletion of thumbnail from cloudinary failed",error.message)
+    }
+    try {
+        await deleteVideoFromCloudinary(videoPublicId)
+    } 
+    catch (error) {
+        console.log("Deletion of Video from cloudinary failed",error.message)
+    }
+    const deletedVideo = await Video.findByIdAndDelete(videoId)
+    if(!deletedVideo){
+        console.warn("Video could not be deleted")
+        throw new ApiError(500, "Video could not be deleted")
+    }
+    return res.status(200).json(
+        new ApiResponse(200,deletedVideo,"Video deleted successfully")
+    )
+
 })
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+    if(!videoId){
+        throw new ApiError(400,"Content Unavailable")
+    }
+    let video = await Video.findById(videoId)
+    if(!video){
+        throw new ApiError(404,"Video not found")
+    }
+    if(!(video.owner.toString() === req.user._id.toString())){
+        throw new ApiError(401,"Unauthorized Access")
+    }
+    let message = "";
+    if(video.isPublished === true){
+        video = await Video.findByIdAndUpdate(
+            videoId,
+            { $set: {
+                isPublished:false
+                },
+            },
+            { new:true }
+        )
+        message = "Video unpublished successfully"
+    }
+    else if(video.isPublished === false){
+        video = await Video.findByIdAndUpdate(
+            videoId,
+            { $set: {
+                isPublished: true
+                }
+            },
+            { new: true }
+        )
+        message = "Video published successfully"
+    }
+    res.status(200).json(
+        new ApiResponse(200,video,message)
+    )
 })
 
 export {
@@ -204,7 +271,7 @@ export {
     publishAVideo,
     getVideoById,
     getVideoBySearch,
-    updateVideo,
+    updateVideo, 
     deleteVideo,
     togglePublishStatus
 }
