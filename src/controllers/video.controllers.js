@@ -1,6 +1,4 @@
-import mongoose, {isValidObjectId} from "mongoose"
 import {Video} from "../models/video.models.js"
-import {User} from "../models/user.models.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
@@ -10,6 +8,7 @@ import { upload } from "../middlewares/multer.middleware.js"
 
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
+    
     //TODO: get all videos based on query, sort, pagination
 
 
@@ -99,11 +98,11 @@ const getVideoBySearch = asyncHandler (async (req,res) => {
   }
 
   // Pagination math
-  const skip = (parseInt(page) - 1) * parseInt(limit);
+  const skip = (parseInt(page,10) - 1) * parseInt(limit,10);
 
   // Fetch videos from DB
   const videos = await Video.find(query)
-    .sort({ [sortBy]: sortOrder === "desc" ? -1 : 1 })
+    .sort({ [sortBy]: sortOrder === "desc" ? -1 : 1 }) //ternary operator structure --> condition ? exprIfTrue : exprIfFalse
     .skip(skip)
     .limit(parseInt(limit));
 
