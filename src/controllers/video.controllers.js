@@ -256,7 +256,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
                 isPublished: true
                 }
             },
-            { new: true }
+            { new : true }
         )
         message = "Video published successfully"
     }
