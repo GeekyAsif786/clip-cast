@@ -1,5 +1,5 @@
 import mongoose, {isValidObjectId} from "mongoose"
-import {Like} from "../models/like.model.js"
+import {Like} from "../models/like.models.js"
 import { Video } from "../models/video.models.js"
 import { Comment } from "../models/comment.models.js"
 import { Tweet } from "../models/tweet.models.js"
@@ -7,14 +7,14 @@ import { User } from "../models/user.models.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
-import { populate } from "dotenv"
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
     const {videoId} = req.params
+    console.log("Compiler reached checkpoint 0")
     if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid Video ID");
     }
-    const video = await Video.exists(videoId);
+    const video = await Video.exists({_id:videoId});
     if(!video){
         throw new ApiError(404,"Content Unavailable")
     }
@@ -22,12 +22,14 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
         video : videoId, 
         likedBy : req.user._id,
     })
+    console.log("Compiler reached checkpoint 1")
     let like;
     if(!existingLike){
         like = await Like.create({
             video:videoId,
             likedBy:req.user._id,
         })
+        console.log("Compiler reached checkpoint 2")
         if(like){
             await Video.findByIdAndUpdate(videoId,
                 {
@@ -38,6 +40,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
                 { new : true}
             )
         }
+        console.log("Compiler reached checkpoint 3")
     }
     else{
         like = await Like.findByIdAndDelete(existingLike._id)
@@ -50,6 +53,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
             { new : true }
         )
     }
+    console.log("Compiler reached checkpoint 4")
     const message = existingLike ? "Video unliked successfully" : "Video liked successfully";
     return res.status(200).json(
         new ApiResponse(200,like,message)
@@ -161,12 +165,10 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 )
 
 const getLikedVideos = asyncHandler(async (req, res) => {
-    const{
         // sortBy = "createdAt",
         // sortOrder = "desc",
-        page = 1,
-        limit = 10,
-    } = req.query;
+    const page = 1;
+    const limit = 10;
     const user = await User.findById(req.user._id)
     if(!user){
         throw new ApiError(401,"Unauthorized access")
