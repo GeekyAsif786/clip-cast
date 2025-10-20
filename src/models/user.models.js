@@ -32,6 +32,14 @@ const userSchema = new Schema(
     coverImage: {
       type: String, //Cloudinary url
     },
+    subscribersCount:{
+      type:Number,
+      default: 0,
+    },
+    channelsSubscribedToCount:{
+      type: Number,
+      default:0,
+    },
     watchHistory: [
         {
         type: Schema.Types.ObjectId,
