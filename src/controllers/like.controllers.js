@@ -10,7 +10,6 @@ import {asyncHandler} from "../utils/asyncHandler.js"
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
     const {videoId} = req.params
-    console.log("Compiler reached checkpoint 0")
     if (!isValidObjectId(videoId)) {
         throw new ApiError(400, "Invalid Video ID");
     }
@@ -22,14 +21,12 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
         video : videoId, 
         likedBy : req.user._id,
     })
-    console.log("Compiler reached checkpoint 1")
     let like;
     if(!existingLike){
         like = await Like.create({
             video:videoId,
             likedBy:req.user._id,
         })
-        console.log("Compiler reached checkpoint 2")
         if(like){
             await Video.findByIdAndUpdate(videoId,
                 {
@@ -40,7 +37,6 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
                 { new : true}
             )
         }
-        console.log("Compiler reached checkpoint 3")
     }
     else{
         like = await Like.findByIdAndDelete(existingLike._id)
@@ -53,7 +49,6 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
             { new : true }
         )
     }
-    console.log("Compiler reached checkpoint 4")
     const message = existingLike ? "Video unliked successfully" : "Video liked successfully";
     return res.status(200).json(
         new ApiResponse(200,like,message)
@@ -65,7 +60,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     if (!isValidObjectId(commentId)) {
         throw new ApiError(400, "Invalid Comment ID");
     }
-    let comment = await Comment.exists(commentId)
+    let comment = await Comment.exists({_id:commentId})
     if(!comment){
         throw new ApiError(404,"Comment not found")
     }
@@ -116,7 +111,7 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
     if(!isValidObjectId(tweetId)){
         throw new ApiError(400,"Invalid Tweeet Id")
     }
-    let tweet = await Tweet.exists(tweetId)
+    let tweet = await Tweet.exists({_id:tweetId})
     if(!tweet){
         throw new ApiError(404,"Tweet not found")
     }
