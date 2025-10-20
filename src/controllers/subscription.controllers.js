@@ -86,8 +86,13 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
     const totalSubscribers = await Subscription.countDocuments({
         channel:mongoose.Types.ObjectId(channelId),
     })
+    const isSubscribed = await Subscription.exists({
+        subscriber: req.user._id,
+        channel: mongoose.Types.ObjectId(channelId),
+    });
+
     return res.status(200).json(
-        new ApiResponse(200,totalSubscribers,"Total Subscribers fetched Successfully")
+        new ApiResponse(200,{totalSubscribers, isSubscribed: !!isSubscribed},"Channel subscription info fetched Successfully")
     )
 })
 
