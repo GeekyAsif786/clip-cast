@@ -22,10 +22,11 @@ app.use(cookieParser())
 import videoRouter from './routes/video.routes.js'
 import userRouter from './routes/user.routes.js'
 import likeRouter from './routes/like.routes.js'
-
+import commentRouter from './routes/comment.routes.js'
 //routes declaration
 //*since we have separated routes and controllers folders,so we need to use middleware to use routes
 app.use("/api/v1/users", userRouter ) //? http://localhost:<port>/api/v1/users/<route>
 app.use("/api/v1/videos", videoRouter) //? http://localhost:<port>/api/v1/videos/<route>
 app.use("/api/v1/likes",likeRouter) //? http://localhost:<port>/api/v1/likes/<route>
+app.use("/api/v1/comments",commentRouter)
 export { app } 
