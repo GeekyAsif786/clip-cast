@@ -99,6 +99,81 @@ const getUserChannelSubscribers = asyncHandler(async (req, res) => {
 // controller to return channel list to which user has subscribed
 const getSubscribedChannels = asyncHandler(async (req, res) => {
     const { subscriberId } = req.params
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    if(!isValidObjectId(subscriberId)){
+        throw new ApiError(400,"Invalid User Id")
+    }
+    const userExists = await User.exists({_id:subscriberId})
+    if(!userExists){
+        throw new ApiError(404,"User does not exist")
+    }
+    const skip = (parseInt(page)-1) * parseInt(limit)
+    const subscribedChannels = await Subscription.find({
+        subscriber:subscriberId,
+    }).populate("channel","username avatar coverImage subscribersCount").skip(skip)
+    .limit(parseInt(limit))
+    .sort({createdAt : -1}).lean()
+
+    /* ALTERNATIVE METHOD AT MONGODB NATIVE LEVEL(For large datasets) -->
+         const pipeline = [
+        {
+            $match: { subscriber: new mongoose.Types.ObjectId(subscriberId) },
+        },
+        {
+            $lookup: {
+                from: "users", // collection name (always lowercase + plural)
+                localField: "channel",
+                foreignField: "_id",
+                as: "channelDetails",
+            },
+        },
+        {
+            $unwind: "$channelDetails", // converts array -> single object
+        },
+        {
+            $project: {
+                _id: 0,
+                "channelDetails._id": 1,
+                "channelDetails.username": 1,
+                "channelDetails.avatar": 1,
+                "channelDetails.coverImage": 1,
+                "channelDetails.subscribersCount": 1,
+            },
+        },
+        {
+            $sort: { createdAt: -1 },
+        },
+        {
+            $skip: skip,
+        },
+        {
+            $limit: limit,
+        },
+    ];
+
+    const subscribedChannels = await Subscription.aggregate(pipeline);
+    */
+
+    if( !subscribedChannels || subscribedChannels.length === 0 ){
+        throw new ApiError(404,"No channels subscribed")
+    }
+    const channelsList = subscribedChannels.map(sub => sub.channel);
+    const totalChannelsSubscribed = await Subscription.countDocuments({
+        subscriber:subscriberId,
+    })
+    const totalPages = Math.ceil(totalChannelsSubscribed/parseInt(limit));
+    return res.status(200).json(
+        new ApiResponse(200,{
+            channelsList,
+            pagination: {
+                totalChannelsSubscribed,
+                totalPages,
+                currentPage: parseInt(page),
+                pageSize: parseInt(limit),
+            },
+        },"Subscribed Channels fetched Successfully")
+    )
 })
 
 export {
