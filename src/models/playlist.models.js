@@ -12,6 +12,7 @@ const playlistSchema = new Schema({
     description:{
         type:true,
         required:false,
+        trim:true,
     },
     //array of videos
     videos:[
@@ -24,6 +25,7 @@ const playlistSchema = new Schema({
     owner:{
         type:Schema.Types.ObjectId,
         ref:"User",
+        required:true,
     }
 },{timestamps:true})
 
