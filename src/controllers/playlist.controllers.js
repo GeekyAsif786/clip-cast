@@ -32,15 +32,8 @@ const createPlaylist = asyncHandler(async (req, res) => {
     )
 })
 
-const getPlaylistsVideos = asyncHandler(async (req, res) => {
-    /*
-        Validate the playlistId (not userId)
-        Check if that playlist exists and belongs to the user
-        Populate all the videos in it
-        Paginate if needed
-        Return a clean structured response
-    */
-    const { playlistId } = req.params;
+const getPlaylistById = asyncHandler(async (req, res) => {
+    const {playlistId} = req.params
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     if (!isValidObjectId(playlistId)) {
@@ -67,7 +60,7 @@ const getPlaylistsVideos = asyncHandler(async (req, res) => {
     const endIndex = startIndex + limit;
 
     const paginatedVideos = playlist.videos.slice(startIndex, endIndex);
-    
+
     return res.status(200).json(
         new ApiResponse(
             200,
@@ -88,18 +81,10 @@ const getPlaylistsVideos = asyncHandler(async (req, res) => {
     );
 });
 
-
-
-
 const getUserPlaylists = asyncHandler(async (req, res) => {
     const {userId} = req.params
     //TODO: get user playlists
 });
-
-const getPlaylistById = asyncHandler(async (req, res) => {
-    const {playlistId} = req.params
-    //TODO: get playlist by id
-})
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
     const {playlistId, videoId} = req.params
@@ -125,7 +110,6 @@ const updatePlaylist = asyncHandler(async (req, res) => {
 export {
     createPlaylist,
     getUserPlaylists,
-    getPlaylistsVideos,
     getPlaylistById,
     addVideoToPlaylist,
     removeVideoFromPlaylist,
