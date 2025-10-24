@@ -162,8 +162,8 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 const getLikedVideos = asyncHandler(async (req, res) => {
         // sortBy = "createdAt",
         // sortOrder = "desc",
-    const page = 1;
-    const limit = 10;
+    const page  = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.page) || 10;
     const user = await User.findById(req.user._id)
     if(!user){
         throw new ApiError(401,"Unauthorized access")
@@ -173,7 +173,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const likes = await Like.find({
         likedBy: req.user._id,
-        video: {$ne:null},
+        video: { $exists: true, $not: { $size: 0 } }
     })
     .populate({
         path:"video",
@@ -196,7 +196,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
     // Get total count for frontend to know how many pages
     const totalLikes = await Like.countDocuments({
         likedBy: req.user._id,
-        video: { $ne: null },
+        video: { $exists: true, $not: { $size: 0 } }
     });
     const totalPages = Math.ceil(totalLikes/parseInt(limit));
     return res.status(200).json(
