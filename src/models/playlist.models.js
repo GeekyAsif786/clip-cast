@@ -32,7 +32,30 @@ const playlistSchema = new Schema({
         enum: ["private","public","unlisted"],
         default:"private",
     },
+    isDeleted: {
+    type: Boolean,
+    default: false,
+    },
+    deletedAt: {
+        type: Date,
+        default: null,
+    },
 },{timestamps:true})
+
+//Pre-query middleware (soft delete filter)
+playlistSchema.pre(/^find/, function(next) {
+    if (!this.getFilter().includeDeleted) {
+        this.where({ isDeleted: false });
+    }
+    next();
+});
+
+//pre-aggregate hook (if you use aggregations)
+playlistSchema.pre("aggregate", function(next) {
+    const matchStage = { $match: { isDeleted: false } };
+    this.pipeline().unshift(matchStage);
+    next();
+});
 
 export const Playlist = mongoose.model("Playlist",playlistSchema)
 
