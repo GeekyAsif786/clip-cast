@@ -163,7 +163,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
         // sortBy = "createdAt",
         // sortOrder = "desc",
     const page  = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.page) || 10;
+    const limit = parseInt(req.query.limit) || 10;
     const user = await User.findById(req.user._id)
     if(!user){
         throw new ApiError(401,"Unauthorized access")

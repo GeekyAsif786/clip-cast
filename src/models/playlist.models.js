@@ -26,7 +26,12 @@ const playlistSchema = new Schema({
         type:Schema.Types.ObjectId,
         ref:"User",
         required:true,
-    }
+    },
+    visibility:{
+        type:String,
+        enum: ["private","public","unlisted"],
+        default:"private",
+    },
 },{timestamps:true})
 
 export const Playlist = mongoose.model("Playlist",playlistSchema)
