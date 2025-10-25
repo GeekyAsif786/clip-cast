@@ -5,6 +5,8 @@ import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 import { User } from "../models/user.models.js"
 import { use } from "react"
+import { Video } from "../models/video.models.js"
+import { ActivityLog } from "../models/activitylog.models.js"
 
 
 const createPlaylist = asyncHandler(async (req, res) => {
@@ -138,7 +140,7 @@ const togglePlaylistVisibility = asyncHandler (async(req,res)=>{
     if(!playlist){
         throw new ApiError(404,"No playlist found")
     }
-    if(playlist.owner.toString() !== req.user._id.toString()){
+    if(playlist.owner._id.toString() !== req.user._id.toString()){
         throw new ApiError(401,"Unauthorized request")
     }
     const validVisibilities = ["public", "private", "unlisted"];
@@ -155,25 +157,206 @@ const togglePlaylistVisibility = asyncHandler (async(req,res)=>{
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
     const {playlistId, videoId} = req.params
-     
+     if(!isValidObjectId(playlistId) || !isValidObjectId(videoId)){
+        throw new ApiError(400,"Invalid playlist Id or Video Id")
+     }
+     const [video, playlist] = await Promise.all([
+        Video.findById(videoId),
+        Playlist.findById(playlistId),
+    ]);
+
+     if (!video) throw new ApiError(404, "Video does not exist");
+     if (!playlist) throw new ApiError(404, "Playlist does not exist");
+     if(req.user._id.toString() !== playlist.owner.toString()){
+        throw new ApiError(403,"Unauthorized Request")
+     }
+     const updatedPlaylist = await Playlist.findOneAndUpdate(
+        { _id: playlistId, owner: req.user._id },
+        { $addToSet: { videos: videoId } },
+        { new: true },
+    );
+    if (!updatedPlaylist) {
+        throw new ApiError(404, "Playlist not found or unauthorized");
+    }
+    const responseData = {
+        playlistId: updatedPlaylist._id,
+        addedVideoId: videoId,
+        name: updatedPlaylist.name,
+        totalVideos: updatedPlaylist.videos.length,
+    };
+    ActivityLog.create({
+        user: req.user._id,
+        action: "ADD_TO_PLAYLIST",
+        target: videoId,
+        playlist: playlistId,
+    }).catch(err => console.error("Failed to log activity:", err));
+     return res.status(200).json(
+        new ApiResponse(200, responseData, "Video added to playlist successfully")
+    );
+
 })
 
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     const {playlistId, videoId} = req.params
-    // TODO: remove video from playlist
+     if(!isValidObjectId(playlistId) || !isValidObjectId(videoId)){
+        throw new ApiError(400,"Invalid playlist Id or Video Id")
+     }
+     const [video, playlist] = await Promise.all([
+        Video.findById(videoId),
+        Playlist.findById(playlistId),
+    ]);
 
+     if (!video) throw new ApiError(404, "Video does not exist");
+     if (!playlist) throw new ApiError(404, "Playlist does not exist");
+     if(req.user._id.toString() !== playlist.owner.toString()){
+        throw new ApiError(403,"Unauthorized Request")
+     }
+     if (!playlist.videos.includes(videoId)) {
+        return res.status(200).json(
+            new ApiResponse(200, null, "Video is not in the playlist")
+        );
+    } 
+     const updatedPlaylist = await Playlist.findOneAndUpdate(
+        { _id: playlistId, owner: req.user._id },
+        { $pull: { videos: videoId } },
+        { new: true },
+    );
+    if (!updatedPlaylist) {
+        throw new ApiError(404, "Playlist not found or unauthorized");
+    }
+    const responseData = {
+        playlistId: updatedPlaylist._id,
+        removedVideoId: videoId,
+        name: updatedPlaylist.name,
+        totalVideos: updatedPlaylist.videos.length,
+    };
+    ActivityLog.create({
+        user: req.user._id,
+        action: "REMOVE_FROM_PLAYLIST",
+        target: videoId,
+        playlist: playlistId,
+    }).catch(err => console.error("Failed to log activity:", err));
+     return res.status(200).json(
+        new ApiResponse(200, responseData, "Video removed from playlist successfully")
+    );
 })
 
 const deletePlaylist = asyncHandler(async (req, res) => {
     const {playlistId} = req.params
-    // TODO: delete playlist
-})
+    if(!isValidObjectId(playlistId)){
+        throw new ApiError(400,"Invalid Playlist Id")
+    }
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const playlist = await Playlist.findById(playlistId).session(session);
+        if (!playlist) {
+            throw new ApiError(404, "Playlist not found");
+        }
+        if (playlist.owner.toString() !== req.user._id.toString()) {
+            throw new ApiError(403, "Unauthorized Request");
+        }
+        playlist.isDeleted = true;
+        playlist.deletedAt = new Date();
+        await playlist.save({ session });
+
+        ActivityLog.create({
+            user: req.user._id,
+            action: "DELETE_PLAYLIST",
+            target: playlistId,
+            playlist: playlistId,
+            metadata: {
+                playlistName: playlist.name,
+                totalVideos: playlist.videos.length,
+            },
+        }).catch(err => console.error("Failed to log activity:", err));
+
+        await session.commitTransaction();
+        session.endSession();
+        
+        return res.status(200).json(
+            new ApiResponse(
+                200,
+                {
+                    playlistId: playlist._id,
+                    name: playlist.name,
+                    deleted: true,
+                    deletedAt: playlist.deletedAt,
+                },
+                "Playlist deleted successfully (soft deleted)"
+            )
+        );
+
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        console.error("Transaction failed:", error);
+
+        throw error instanceof ApiError
+            ? error
+            : new ApiError(500, "Failed to delete playlist");
+    }
+});
 
 const updatePlaylist = asyncHandler(async (req, res) => {
-    const {playlistId} = req.params
-    const {name, description} = req.body
-    //TODO: update playlist
-})
+    const { playlistId } = req.params;
+    const { name, description } = req.body;
+    if (!isValidObjectId(playlistId)) {
+        throw new ApiError(400, "Invalid Playlist ID");
+    }
+    if (!name?.trim() && !description?.trim()) {
+        throw new ApiError(400, "At least one field (name or description) must be provided to update");
+    }
+    const playlist = await Playlist.findById(playlistId);
+    if (!playlist) {
+        throw new ApiError(404, "Playlist not found");
+    }
+    if (playlist.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "Unauthorized request — you cannot modify this playlist");
+    }
+    if (name?.trim()) {
+        const existingPlaylist = await Playlist.findOne({
+            _id: { $ne: playlistId },
+            owner: req.user._id,
+            name: name.trim(),
+        });
+        if (existingPlaylist) {
+            throw new ApiError(400, "You already have a playlist with the same name");
+        }
+    }
+    const updateFields = {};
+    if (name?.trim()) updateFields.name = name.trim();
+    if (description?.trim() || description === "") updateFields.description = description?.trim() || "";
+    const updatedPlaylist = await Playlist.findOneAndUpdate(
+        { _id: playlistId, owner: req.user._id },
+        { $set: updateFields },
+        { new: true, runValidators: true }
+    );
+
+    if (!updatedPlaylist) {
+        throw new ApiError(500, "Failed to update playlist");
+    }
+    ActivityLog.create({
+        user: req.user._id,
+        action: "UPDATE_PLAYLIST",
+        target: playlistId,
+        playlist: playlistId,
+        metadata: { updatedFields: Object.keys(updateFields) },
+    }).catch(err => console.error("Failed to log playlist update activity:", err));
+    const responseData = {
+        playlistId: updatedPlaylist._id,
+        name: updatedPlaylist.name,
+        description: updatedPlaylist.description,
+        totalVideos: updatedPlaylist.videos.length,
+        updatedAt: updatedPlaylist.updatedAt,
+    };
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, responseData, "Playlist updated successfully"));
+});
+
 
 export {
     createPlaylist,
