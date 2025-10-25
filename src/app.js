@@ -25,8 +25,10 @@ import likeRouter from './routes/like.routes.js'
 import commentRouter from './routes/comment.routes.js'
 import subscriptionRouter from './routes/subscription.routes.js'
 import playlistRouter from './routes/playlist.routes.js'
+import healthcheckRouter from './routes/healthcheck.routes.js'
 //routes declaration
 //*since we have separated routes and controllers folders,so we need to use middleware to use routes
+app.use("/api/v1/healthcheck", healthcheckRouter)
 app.use("/api/v1/users", userRouter ) //? http://localhost:<port>/api/v1/users/<route>
 app.use("/api/v1/videos", videoRouter) //? http://localhost:<port>/api/v1/videos/<route>
 app.use("/api/v1/likes",likeRouter) //? http://localhost:<port>/api/v1/likes/<route>
