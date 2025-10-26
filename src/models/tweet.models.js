@@ -11,6 +11,9 @@ const tweetSchema = new Schema({
         type:String,
         required:[true,"Tweet text is required"],
     },
+    media:{
+        type: String,
+    },
     likeCount:{
         type:Number,
         default:0
