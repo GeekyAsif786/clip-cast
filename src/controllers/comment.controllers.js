@@ -61,101 +61,210 @@ const getVideoComments = asyncHandler(async (req, res) => {
 });
 
 const addComment = asyncHandler(async (req, res) => {
-    const {videoId} = req.params
-    const {content} = req.body
-    if(!isValidObjectId(videoId)){
-        throw new ApiError(400,"Invalid object Id")
+  const { videoId } = req.params;
+  const { content } = req.body;
+
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid video ID");
+  }
+  if (!content?.trim()) {
+    throw new ApiError(400, "Comment content cannot be empty");
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const video = await Video.findById(videoId).session(session);
+    if (!video) {
+      throw new ApiError(404, "Video not found");
     }
-    const video = await Video.exists({_id:videoId})
-    if(!video){
-        throw new ApiError(404,"Video not found")
+
+    const comment = await Comment.create(
+      [
+        {
+          content: content.trim(),
+          video: videoId,
+          owner: req.user._id,
+        },
+      ],
+      { session }
+    );
+
+    if (!comment?.length) {
+      throw new ApiError(500, "Failed to create comment");
     }
-    if(!content) {
-        throw new ApiError(404,"Comment content cannot be empty")
-    }
-    const comment = await Comment.create({
-        content,
-        video:videoId,
-        owner:req.user._id,
-    })
-    if(comment){
-        await Video.findByIdAndUpdate(videoId,
-            {
-                $inc:{
-                    commentCount:1
-                },
-            },
-            {new:true}
-        )
-    }
-    else{
-        throw new ApiError(404,"Cannot comment on the video")
-    }
-    await comment.populate("owner", "username avatar")
-    return res.status(201).json(
-        new ApiResponse(201,comment,"Successfully commented on video")
-    )
-})
+
+    await Video.findByIdAndUpdate(
+      videoId,
+      { $inc: { commentCount: 1 } },
+      { new: true, session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    await comment[0].populate("owner", "username avatar");
+
+    ActivityLog.create({
+      user: req.user._id,
+      action: "ADD_COMMENT",
+      target: videoId,
+      targetModel: "Video",
+      metadata: { commentId: comment[0]._id },
+    }).catch((err) => console.error("ActivityLog failed:", err));
+
+    return res
+      .status(201)
+      .json(new ApiResponse(201, comment[0], "Successfully commented on video"));
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Transaction failed:", error);
+    throw error instanceof ApiError
+      ? error
+      : new ApiError(500, "Failed to comment on video. Transaction rolled back.");
+  }
+});
+
 
 const updateComment = asyncHandler(async (req, res) => {
-    const {commentId,videoId} = req.params
-    const {content} = req.body
-    if(!isValidObjectId(commentId)){
-        throw new ApiError(404,"Invalid Object Id")
-    }
-    const video = await Video.exists({_id:videoId})
-    if(!video){
-        throw new ApiError(404,"Video not found")
-    }
-    let comment = await Comment.findById(commentId)
-    if(!comment){
-        throw new ApiError(404,"Comment does not exist")
-    }
-    if(!(comment.owner.toString() === req.user._id.toString())){
-        throw new ApiError(401,"Unauthrized Request")
-    }
-    if(content && content.trim() !== ""){
-        comment.content = content.trim();
-        await comment.save();
-    }
-    else{
-        console.log("No content to update")
-    }
-    return res.status(200).json(
-        new ApiResponse(200,comment,"Comment updated Successfully")
-    )
-    
-})
+  const { commentId, videoId } = req.params;
+  const { content } = req.body;
 
-const deleteComment = asyncHandler(async (req, res) => { 
-    // TODO: delete a comment
-    const {videoId,commentId} = req.params
-    if(!isValidObjectId(commentId) || !isValidObjectId(videoId)){
-        throw new ApiError(400,"Invalid Object Id")
+  if (!isValidObjectId(commentId)) {
+    throw new ApiError(400, "Invalid comment ID");
+  }
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid video ID");
+  }
+
+  if (!content?.trim()) {
+    throw new ApiError(400, "Updated content cannot be empty");
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const video = await Video.findById(videoId).session(session);
+    if (!video) {
+      throw new ApiError(404, "Video not found");
     }
-    const videoExists = await Video.exists({_id:videoId})
-    let comment = await Comment.findById(commentId)
-    if(!videoExists){
-        throw new ApiError(404,"Video not found")
+
+    const comment = await Comment.findById(commentId).session(session);
+    if (!comment) {
+      throw new ApiError(404, "Comment does not exist");
     }
-    if(!comment){
-        throw new ApiError(404,"Comment not found")
+
+    if (comment.owner.toString() !== req.user._id.toString()) {
+      throw new ApiError(403, "Unauthorized request — cannot edit this comment");
     }
-    if(!(comment.owner.toString()===req.user._id.toString())){
-        throw new ApiError(401,"Unauthorized Request")
+
+    comment.content = content.trim();
+    comment.editedAt = new Date();
+    await comment.save({ session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Log activity asynchronously (outside transaction)
+    ActivityLog.create({
+      user: req.user._id,
+      action: "UPDATE_COMMENT",
+      target: commentId,
+      targetModel: "Comment",
+      metadata: {
+        videoId,
+        newContent: comment.content,
+        editedAt: comment.editedAt,
+      },
+    }).catch((err) => console.error("Failed to log comment update:", err));
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, comment, "Comment updated successfully"));
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Transaction failed:", error);
+    throw error instanceof ApiError
+      ? error
+      : new ApiError(500, "Failed to update comment. Transaction rolled back.");
+  }
+});
+
+
+const deleteComment = asyncHandler(async (req, res) => {
+  const { videoId, commentId } = req.params;
+
+  if (!isValidObjectId(commentId) || !isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid Object ID");
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const video = await Video.findById(videoId).session(session);
+    if (!video) {
+      throw new ApiError(404, "Video not found");
     }
-    const deletedComment = await Comment.findByIdAndDelete(commentId)
-    if(deletedComment){
-        await Video.findByIdAndUpdate(videoId,{
-            $inc:{
-                commentCount: -1
-            },
-        });
+
+    const comment = await Comment.findById(commentId).session(session);
+    if (!comment) {
+      throw new ApiError(404, "Comment not found");
     }
-    return res.status(200).json(
-        new ApiResponse(200,deletedComment,"Comment deleted successfully")
-    )
-})
+
+    if (comment.owner.toString() !== req.user._id.toString()) {
+      throw new ApiError(403, "Unauthorized request — cannot delete this comment");
+    }
+
+    const deletedComment = await Comment.findByIdAndDelete(commentId, { session });
+    if (!deletedComment) {
+      throw new ApiError(500, "Failed to delete comment");
+    }
+
+    // Decrement comment count only if delete succeeded
+    await Video.findByIdAndUpdate(
+      videoId,
+      { $inc: { commentCount: -1 } },
+      { new: true, session }
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Optional: Log the deletion asynchronously (non-blocking)
+    ActivityLog.create({
+      user: req.user._id,
+      action: "DELETE_COMMENT",
+      target: commentId,
+      targetModel: "Comment",
+      metadata: {
+        videoId,
+        deletedAt: new Date(),
+      },
+    }).catch((err) => console.error("Failed to log comment deletion:", err));
+
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(200, deletedComment, "Comment deleted successfully")
+      );
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Transaction failed:", error);
+    throw error instanceof ApiError
+      ? error
+      : new ApiError(500, "Failed to delete comment. Transaction rolled back.");
+  }
+});
+
 
 export {
     getVideoComments, 
