@@ -1,6 +1,6 @@
 import rateLimit from "express-rate-limit";
 
-// 🧠 Rate limiter for updating tweets (per-user, not per-IP)
+//Rate limiter for updating tweets (per-user, not per-IP)
 export const updateTweetRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute window
   max: 5, // max 5 updates per user per minute
