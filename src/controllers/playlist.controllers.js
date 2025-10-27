@@ -9,30 +9,68 @@ import { ActivityLog } from "../models/activitylog.models.js"
 
 
 const createPlaylist = asyncHandler(async (req, res) => {
-    const {name, description} = req.body
-    if(!name?.trim()){
-        throw new ApiError(400,"Name is required for playlist")
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+        const { name, description } = req.body;
+
+        if (!name?.trim()) {
+            throw new ApiError(400, "Name is required for playlist");
+        }
+        const existingPlaylist = await Playlist.findOne(
+            { name: name.trim(), owner: req.user._id },
+            null,
+            { session }
+        );
+
+        if (existingPlaylist) {
+            throw new ApiError(400, "You already have a playlist with the same name");
+        }
+
+        const [playlist] = await Playlist.create(
+            [
+                {
+                    name: name.trim(),
+                    description: description?.trim() || "",
+                    owner: req.user._id,
+                    videos: [],
+                },
+            ],
+            { session }
+        );
+
+        if (!playlist) {
+            throw new ApiError(500, "Problem occurred while creating playlist");
+        }
+        await ActivityLog.create(
+            [
+                {
+                    user: req.user._id,
+                    action: "CREATE_PLAYLIST",
+                    description: `Created playlist "${playlist.name}"`,
+                    metadata: {
+                        playlistId: playlist._id,
+                        description: playlist.description,
+                    },
+                },
+            ],
+            { session }
+        );
+        await session.commitTransaction();
+        session.endSession();
+
+        return res.status(201).json(
+            new ApiResponse(201, playlist, "Playlist created successfully")
+        );
+
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        throw error; 
     }
-    const existingPlaylist = await Playlist.findOne({
-        name: name.trim(),
-        owner: req.user._id,
-    });
-    if(existingPlaylist){
-        throw new ApiError(400,"You already have a playlist with the same name")
-    }
-    const playlist = await Playlist.create({
-        name: name.trim(),
-        description: description?.trim() || "",
-        owner: req.user._id,
-        videos: [],
-    });
-    if(!playlist){
-        throw new ApiError(404,"Problem occurred while creating playlist")
-    }
-    return res.status(201).json(
-        new ApiResponse(201,playlist,"Playlist created successfully ")
-    )
-})
+});
+
 
 const getPlaylistById = asyncHandler(async (req, res) => {
     const {playlistId} = req.params
@@ -129,29 +167,64 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
     );
 });
 
-const togglePlaylistVisibility = asyncHandler (async(req,res)=>{
-    const {playlistId} = req.params;
-    const {visibility} = req.body;
-    if(!isValidObjectId(playlistId)){
-        throw new ApiError(400,"Invalid Playlist Id")
+const togglePlaylistVisibility = asyncHandler(async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { playlistId } = req.params;
+    const { visibility } = req.body;
+
+    if (!isValidObjectId(playlistId)) {
+      throw new ApiError(400, "Invalid Playlist Id");
     }
-    const playlist = await Playlist.findById(playlistId)
-    if(!playlist){
-        throw new ApiError(404,"No playlist found")
+
+    const playlist = await Playlist.findById(playlistId).session(session);
+    if (!playlist) {
+      throw new ApiError(404, "No playlist found");
     }
-    if(playlist.owner._id.toString() !== req.user._id.toString()){
-        throw new ApiError(401,"Unauthorized request")
+
+    if (playlist.owner.toString() !== req.user._id.toString()) {
+      throw new ApiError(401, "Unauthorized request");
     }
+
     const validVisibilities = ["public", "private", "unlisted"];
     if (!validVisibilities.includes(visibility)) {
-        throw new ApiError(400, "Invalid visibility value");
+      throw new ApiError(400, "Invalid visibility value");
     }
+
     playlist.visibility = visibility;
-    await playlist.save();
+    await playlist.save({ session });
+
+    await ActivityLog.create(
+      [
+        {
+          user: req.user._id,
+          action: "TOGGLE_PLAYLIST_VISIBILITY",
+          target: playlist._id,
+          targetModel: "Playlist",
+          metadata: {
+            newVisibility: visibility,
+          },
+        },
+      ],
+      { session }
+    );
+    await session.commitTransaction();
+    session.endSession();
+
     return res.status(200).json(
-        new ApiResponse(200,playlist,"Playlist visibility changed successfully")
-    )
-})
+      new ApiResponse(200, playlist, "Playlist visibility changed successfully")
+    );
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    throw new ApiError(
+      500,
+      error.message || "Failed to toggle playlist visibility"
+    );
+  }
+});
 
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
