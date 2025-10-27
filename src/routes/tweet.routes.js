@@ -6,7 +6,7 @@ import {
     updateTweet,
 } from "../controllers/tweet.controllers.js"
 import {verifyJWT} from "../middlewares/auth.middleware.js"
-import { updateTweetRateLimiter } from '../middlewares/rateLimiter.middleware.js';
+import { updateTweetRateLimiter } from '../middlewares/rateLimiters/updateTweet.rateLimiter.middleware.js';
 
 const router = Router();
 
