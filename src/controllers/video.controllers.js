@@ -1,29 +1,136 @@
+import mongoose from "mongoose";
+import { VideoView } from "../models/videoView.model.js";
+import { ActivityLog } from "../models/activityLog.model.js";
+import { isValidObjectId } from "mongoose";
 import {Video} from "../models/video.models.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 import {uploadOnCloudinary,deleteImageFromCloudinary,deleteVideoFromCloudinary} from "../utils/cloudinary.js"
-import { upload } from "../middlewares/multer.middleware.js"
 
 
-const getAllVideos = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
-    
-    //TODO: get all videos based on query, sort, pagination
+const recordVideoView = asyncHandler(async (req, res) => {
+  const { videoId } = req.params;
+  const WINDOW_MS = 10 * 60 * 1000; // --> 10 minutes window
 
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid Video ID");
+  }
+  const videoExists = await Video.exists({ _id: videoId });
+  if (!videoExists) {
+    throw new ApiError(404, "Video not found");
+  }
 
-})
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const since = new Date(Date.now() - WINDOW_MS);
+    if (req.user && req.user._id) {
+      const recentView = await VideoView.findOne({
+        video: videoId,
+        viewer: req.user._id,
+        viewedAt: { $gt: since },
+      }).session(session);
+
+      if (recentView) {
+        await session.commitTransaction();
+        session.endSession();
+        return res.status(200).json(
+          new ApiResponse(200, { viewed: false }, "Recent view already recorded")
+        );
+      }
+      await VideoView.create(
+        [
+          {
+            video: videoId,
+            viewer: req.user._id,
+            ip: req.ip,
+            userAgent: req.get("user-agent") || "",
+          },
+        ],
+        { session }
+      );
+
+      await Video.findByIdAndUpdate(
+        videoId,
+        { $inc: { views: 1 } },
+        { session }
+      );
+      await ActivityLog.create(
+        [
+          {
+            user: req.user._id,
+            action: "VIEW_VIDEO",
+            target: videoId,
+            targetModel: "Video",
+            metadata: { ip: req.ip },
+          },
+        ],
+        { session }
+      );
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(200).json(
+        new ApiResponse(200, { viewed: true }, "View recorded")
+      );
+    } else {
+      const userAgent = req.get("user-agent") || "";
+      const recentView = await VideoView.findOne({
+        video: videoId,
+        viewer: null,
+        ip: req.ip,
+        userAgent,
+        viewedAt: { $gt: since },
+      }).session(session);
+
+      if (recentView) {
+        await session.commitTransaction();
+        session.endSession();
+        return res.status(200).json(
+          new ApiResponse(200, { viewed: false }, "Recent view already recorded")
+        );
+      }
+      await VideoView.create(
+        [
+          {
+            video: videoId,
+            viewer: null,
+            ip: req.ip,
+            userAgent,
+          },
+        ],
+        { session }
+      );
+
+      await Video.findByIdAndUpdate(
+        videoId,
+        { $inc: { views: 1 } },
+        { session }
+      );
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(200).json(
+        new ApiResponse(200, { viewed: true }, "View recorded")
+      );
+    }
+  } catch (err) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error("recordVideoView transaction error:", err);
+    throw err instanceof ApiError
+      ? err
+      : new ApiError(500, "Failed to record view. Transaction rolled back.");
+  }
+});
+
 
 const publishAVideo = asyncHandler(async (req, res) => {
     const { title, description} = req.body
     const owner = req.user._id
-    ////check for title and description
-    ////use multer to get the video and thumbnail
-    ////check if the video and thumbnail are succesfully delivered to localpath
-    ////upload them to cloudinary
-    ////create video object - create entry in DataBase
-    ////check for published video
-    ////return response
     if(!title || title === ""){
         throw new ApiError(400,"Title is required")
     }
@@ -37,8 +144,6 @@ const publishAVideo = asyncHandler(async (req, res) => {
     if(!videoLocalPath || !thumbnailLocalPath){
         throw new ApiError(400,"Both Video and Thumbnail are required")
     }
-
-    //Uploading the file from local server to Cloudinary via cloudinary method created and stored in utils
     const videoFile = await uploadOnCloudinary(videoLocalPath)
     const thumbnail = await uploadOnCloudinary(thumbnailLocalPath)
     if(!videoFile){
@@ -60,7 +165,6 @@ const publishAVideo = asyncHandler(async (req, res) => {
     })
 
     const createdVideo = await Video.findById(video._id)
-    console.log(createdVideo)
     if(!createdVideo){
         throw new ApiError(500, "Something went wrong while uploading the Video")
     }
@@ -266,7 +370,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 })
 
 export {
-    getAllVideos,
+    recordVideoView,
     publishAVideo,
     getVideoById,
     getVideoBySearch,
