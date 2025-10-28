@@ -8,36 +8,78 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import { ActivityLog } from "../models/activitylog.global.models.js"
 
 const createTweet = asyncHandler(async (req, res) => {
-    const {content} = req.body;
-    const files = req.files;
-    if ((!content || content.trim().length === 0) && (!files || files.length === 0)) {
-        throw new ApiError(400, "Tweet cannot be empty — add text or media");
-    }
-    const filelocalPath = req.file?.file[0]?.path;
-    const uploadedFile = await uploadOnCloudinary(filelocalPath)
-    if(!uploadedFile){
-        throw new ApiError(500,"Failed to upload media")
-    }
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    const newTweet = await Tweet.create({
-        content:content.trim(),
-        owner:req.user._id,
-        media:uploadedFile?.url || "",
-    })
-    const responseData = {
-        id: newTweet._id,
-        content: newTweet.content,
-        media:newTweet.media,
-        owner: newTweet.owner,
-        createdAt: newTweet.createdAt,
-    };
-    if(!newTweet){
-        throw new ApiError(500,"Failed to create tweet")
+    try {
+        const { content } = req.body;
+        const files = req.files;
+
+        if ((!content || content.trim().length === 0) && (!files || files.length === 0)) {
+            throw new ApiError(400, "Tweet cannot be empty — add text or media");
+        }
+
+        const fileLocalPath = files?.[0]?.path;
+        let uploadedFile = null;
+
+        if (fileLocalPath) {
+            uploadedFile = await uploadOnCloudinary(fileLocalPath);
+            if (!uploadedFile) {
+                throw new ApiError(500, "Failed to upload media");
+            }
+        }
+
+        const newTweet = await Tweet.create(
+            [
+                {
+                    content: content?.trim() || "",
+                    owner: req.user._id,
+                    media: uploadedFile?.url || "",
+                },
+            ],
+            { session }
+        );
+
+        if (!newTweet || newTweet.length === 0) {
+            throw new ApiError(500, "Failed to create tweet");
+        }
+
+        await ActivityLog.create(
+            [
+                {
+                    user: req.user._id,
+                    action: "CREATE_TWEET",
+                    description: `User created a new tweet`,
+                    metadata: {
+                        tweetId: newTweet[0]._id,
+                        hasMedia: !!uploadedFile,
+                    },
+                },
+            ],
+            { session }
+        );
+
+        await session.commitTransaction();
+        session.endSession();
+
+        const responseData = {
+            id: newTweet[0]._id,
+            content: newTweet[0].content,
+            media: newTweet[0].media,
+            owner: newTweet[0].owner,
+            createdAt: newTweet[0].createdAt,
+        };
+
+        return res
+            .status(201)
+            .json(new ApiResponse(201, responseData, "Tweet created successfully"));
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        throw error;
     }
-    return res.status(201).json(
-        new ApiResponse(201,responseData,"Tweet created successfully")
-    )
 });
+
 
 const getUserTweets = asyncHandler(async (req, res) => {
     const {userId} = req.params;

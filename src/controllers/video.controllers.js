@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { VideoView } from "../models/videoView.model.js";
-import { ActivityLog } from "../models/activityLog.model.js";
+import { ActivityLog } from "../models/activitylog.global.models.js"
 import { isValidObjectId } from "mongoose";
 import {Video} from "../models/video.models.js"
 import {ApiError} from "../utils/ApiError.js"
@@ -129,50 +129,96 @@ const recordVideoView = asyncHandler(async (req, res) => {
 
 
 const publishAVideo = asyncHandler(async (req, res) => {
-    const { title, description} = req.body
-    const owner = req.user._id
-    if(!title || title === ""){
-        throw new ApiError(400,"Title is required")
-    }
-    if(!description || description === ""){
-        throw new ApiError(400,"Title is required")
-    }
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    const videoLocalPath = req.files?.videoFile[0]?.path;
-    const thumbnailLocalPath = req.files?.thumbnail[0]?.path;
+    try {
+        const { title, description } = req.body;
+        const owner = req.user._id;
 
-    if(!videoLocalPath || !thumbnailLocalPath){
-        throw new ApiError(400,"Both Video and Thumbnail are required")
+        if (!title || title.trim() === "") {
+            throw new ApiError(400, "Title is required");
+        }
+        if (!description || description.trim() === "") {
+            throw new ApiError(400, "Description is required");
+        }
+
+        const videoLocalPath = req.files?.videoFile?.[0]?.path;
+        const thumbnailLocalPath = req.files?.thumbnail?.[0]?.path;
+
+        if (!videoLocalPath || !thumbnailLocalPath) {
+            throw new ApiError(400, "Both video and thumbnail are required");
+        }
+
+        const videoFile = await uploadOnCloudinary(videoLocalPath);
+        const thumbnail = await uploadOnCloudinary(thumbnailLocalPath);
+
+        if (!videoFile) {
+            throw new ApiError(400, "Video failed to upload");
+        }
+        if (!thumbnail) {
+            throw new ApiError(400, "Thumbnail upload failed");
+        }
+
+        const video = await Video.create(
+            [
+                {
+                    title: title.trim(),
+                    description: description.trim(),
+                    videoFile: videoFile.url,
+                    thumbnail: thumbnail.url,
+                    isPublished: true,
+                    duration: videoFile.duration,
+                    owner,
+                },
+            ],
+            { session }
+        );
+
+        if (!video || !video[0]?._id) {
+            throw new ApiError(500, "Video document creation failed");
+        }
+
+        const createdVideo = await Video.findById(video[0]._id)
+            .session(session);
+
+        if (!createdVideo) {
+            throw new ApiError(500, "Something went wrong while uploading the video");
+        }
+        await ActivityLog.create(
+        [
+            {
+            user: req.user._id,
+            action: "PUBLISH_VIDEO",
+            target: video._id,
+            targetModel: "Video",
+            metadata: {
+                ip: req.ip,
+                userAgent: req.get("user-agent"),
+                title: video.title,
+                videoId: video._id,
+                duration: video.duration,
+                timestamp: new Date(),
+            },
+            },
+        ],
+        { session }
+        );
+
+        await session.commitTransaction();
+        session.endSession();
+
+        return res.status(201).json(
+            new ApiResponse(201, createdVideo, "Video uploaded successfully")
+        );
+
+    } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        throw error;
     }
-    const videoFile = await uploadOnCloudinary(videoLocalPath)
-    const thumbnail = await uploadOnCloudinary(thumbnailLocalPath)
-    if(!videoFile){
-        throw new ApiError(400, "Video failed to upload")
-    }
-    if(!thumbnail){
-        throw new ApiError(400, "Thumbnail Upload failed")
-    }
+});
 
-
-    const video = await Video.create({
-        title,
-        description,
-        videoFile: videoFile.url,
-        thumbnail: thumbnail.url,
-        isPublished:true,
-        duration: videoFile.duration,
-        owner,
-    })
-
-    const createdVideo = await Video.findById(video._id)
-    if(!createdVideo){
-        throw new ApiError(500, "Something went wrong while uploading the Video")
-    }
-
-    return res.status(201).json(
-        new ApiResponse(200,video,"Video Uploaded Successfully")
-    )
-})
 
 const getVideoBySearch = asyncHandler (async (req,res) => {
     // Extract query params with defaults

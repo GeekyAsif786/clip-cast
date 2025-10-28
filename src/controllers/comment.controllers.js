@@ -4,6 +4,7 @@ import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 import { Video } from "../models/video.models.js"
+import { ActivityLog } from "../models/activitylog.global.models.js"
 
 const getVideoComments = asyncHandler(async (req, res) => {
     const {videoId} = req.params
@@ -169,7 +170,6 @@ const updateComment = asyncHandler(async (req, res) => {
     await session.commitTransaction();
     session.endSession();
 
-    // Log activity asynchronously (outside transaction)
     ActivityLog.create({
       user: req.user._id,
       action: "UPDATE_COMMENT",

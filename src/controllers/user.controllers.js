@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken"
 import { uploadOnCloudinary } from "../utils/cloudinary.js"
 import {ApiResponse} from '../utils/ApiResponse.js'
 import mongoose from "mongoose";
+import { ActivityLog } from "../models/activitylog.global.models.js"
 
 //declaring a separate re-usable method for generating access and refresh tokens
 const generateAccessAndRefreshTokens = async (userId) => {
@@ -26,18 +27,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
 
 
 const registerUser = asyncHandler ( async (req,res) => {
-    // get user details from frontend
-    // validation - fields not empty
-    // check if user already exists - via username and email validation with DataBase
-    // check for images and for avatar
-    // upload them to cloudinary
-    // create user object - create entry in DataBase
-    // remove password and refresh token field from response
-    // check for user creation
-    // return response
-
     const {fullName, email, username, password} = req.body
-    // console.log("email: ", email)
 
     if (fullName === ""){
         throw new ApiError(400, "Fullname is required") //?adding a custom error for empty fullname to the ApiError class defined in utils
@@ -51,10 +41,6 @@ const registerUser = asyncHandler ( async (req,res) => {
     if (password === ""){
         throw new ApiError(400, "Password is required") //?adding a custom error for empty password to the ApiError class defined in utils
     }
-    // if (!(validator.isEmail("email"))){
-    //     throw new ApiError(400, "Invalid Email entered!") //?adding a custom error for invalid email format
-    // }
-    //checking if username or email already exists using $ operator
     const existingUsername = await User.findOne({
         $or: [{ username }]
     })
@@ -69,13 +55,12 @@ const registerUser = asyncHandler ( async (req,res) => {
     }
 
     const avatarLocalPath = req.files?.avatar[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage[0]?.path; // tracing the local path of the uploaded file before uploading it to cloudinary (? --> checking if file exists or not)
+    const coverImageLocalPath = req.files?.coverImage[0]?.path; 
     //?check if avatar is uploaded (compulsory entity)
     if(!avatarLocalPath){
         throw new ApiError(400, "Avatar image is reqeuired")
     }
 
-    //Uploading the file from local server to Cloudinary via cloudinary method created and stored in utils
     const avatar = await uploadOnCloudinary(avatarLocalPath)
     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
     if(!avatar){
@@ -90,8 +75,8 @@ const registerUser = asyncHandler ( async (req,res) => {
         username: username.toLowerCase()
     })
 
-    const createdUser = await User.findById(user._id).select( //using .select to fetch the user by id and perform actions on it a follows
-        "-password -refreshToken" //these are the fields that we dont want in response field(with prefix -)
+    const createdUser = await User.findById(user._id).select( 
+        "-password -refreshToken" 
     )
 
     if (!createdUser){
@@ -105,12 +90,6 @@ const registerUser = asyncHandler ( async (req,res) => {
 
 
 const loginUser = asyncHandler (async (req,res) => {
-    //extract data from req body
-    //check username and email in database
-    //find the user
-    //check for correct password
-    //access and refresh token
-    //send cookie
 
     const {email,username,password} = req.body
     console.log(email);
@@ -120,26 +99,22 @@ const loginUser = asyncHandler (async (req,res) => {
         throw new ApiError(400, "username or email is required")
     }
 
-    //checking for match with database
     const user = await User.findOne({
         $or: [{username}, {email}]
     })
 
-    //if user is not found
     if(!user){
         throw new ApiError(404, "User doest not exist")
     }
-    //if user is found(check the password)
     const isPasswordValid = await user.isPasswordCorrect(password)
     if(!isPasswordValid) {
         throw new ApiError(401, "Invalid User Credentials")
     }
 
-    const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id) // On running this method we need to pass the userId from Database and in return we get two values: {Access Token and Refresh Token}
+    const {accessToken, refreshToken} = await generateAccessAndRefreshTokens(user._id) 
 
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken")
 
-    //securing the cookies and making sure they are modifiable only from server-side
     const options = {
         httpOnly: true,
         secure: true

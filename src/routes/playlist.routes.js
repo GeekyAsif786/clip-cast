@@ -10,6 +10,7 @@ import {
     updatePlaylist,
 } from "../controllers/playlist.controllers.js"
 import {verifyJWT} from "../middlewares/auth.middleware.js"
+import { updatePlaylistRateLimiter } from '../middlewares/rateLimiters/updatePlaylist.rateLimiter.middleware.js';
 
 const router = Router();
 
@@ -20,7 +21,7 @@ router.route("/").post(createPlaylist)
 router
     .route("/:playlistId")
     .get(getPlaylistById)
-    .patch(updatePlaylist)
+    .patch(updatePlaylistRateLimiter,updatePlaylist)
     .delete(deletePlaylist);
 router.route("/:playlistId/visibility").patch(verifyJWT,togglePlaylistVisibility)
 router.route("/add/:videoId/:playlistId").patch(addVideoToPlaylist);
