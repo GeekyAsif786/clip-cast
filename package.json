@@ -26,6 +26,8 @@
     "mongoose": "^8.18.3",
     "mongoose-aggregate-paginate-v2": "^1.1.4",
     "multer": "^2.0.2",
+    "swagger-autogen": "^2.23.7",
+    "swagger-ui-express": "^5.0.1",
     "validator": "^13.15.15"
   }
 }
