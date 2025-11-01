@@ -8,7 +8,7 @@ import {
 import {verifyJWT} from "../middlewares/auth.middleware.js"
 import { updateTweetRateLimiter } from '../middlewares/rateLimiters/updateTweet.rateLimiter.middleware.js';
 import { createTweetRateLimiter } from '../middlewares/rateLimiters/createTweet.rateLimiter.middleware.js';
-import { dynamicActionRateLimiter } from '../middlewares/rateLimiters/dynamicActionRateLimiter.js';
+import { dynamicActionRateLimiterVideo } from '../middlewares/rateLimiters/dynamicActionRateLimiter.js';
 
 const router = Router();
 
@@ -17,7 +17,7 @@ router.route("/user/:userId").get(getUserTweets);
 
 // Auth-protected routes
 router.use(verifyJWT);
-router.post("/", dynamicActionRateLimiter("createTweet"),createTweet);
+router.post("/", dynamicActionRateLimiterVideo("createTweet"),createTweet);
 router.patch("/:tweetId", updateTweetRateLimiter, updateTweet);
 router.delete("/:tweetId", deleteTweet);
 

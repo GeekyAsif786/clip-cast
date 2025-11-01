@@ -3,8 +3,7 @@ import { changeCurrentPassword, getCurrentUser, getUserChannelProfile, getWatchH
 import { upload } from "../middlewares/multer.middleware.js"
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 import mongoose from "mongoose";
-import { dynamicActionRateLimiterVideo } from '../middlewares/rateLimiters/dynamicActionRateLimiter.js';
- 
+import { dynamicActionRateLimiterVideo, dynamicActionRateLimiterAuth } from '../middlewares/rateLimiters/dynamicActionRateLimiter.js'; 
 
 const router = Router()
 

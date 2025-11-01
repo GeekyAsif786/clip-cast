@@ -10,7 +10,7 @@ const limiterCache = Object.create(null);
 const AuthLimiterCache = Object.create(null);
 
 
-export const dynamicActionRateLimiterVideo = (actionType) => {
+const dynamicActionRateLimiterVideo = (actionType) => {
   if (!limiterCache[actionType]) {
     const config = RATE_LIMITS_VIDEO[actionType] || RATE_LIMITS_VIDEO.publishAVideo;
     limiterCache[actionType] = {
@@ -46,7 +46,7 @@ export const dynamicActionRateLimiterVideo = (actionType) => {
 };
 
 
-export const dynamicActionRateLimiterAuth = (actionType) => {
+const dynamicActionRateLimiterAuth = (actionType) => {
     if(!AuthLimiterCache[actionType]){
         const config = RATE_LIMITS_AUTH[actionType] || {
             window: 15 * 60 * 1000,
@@ -72,3 +72,8 @@ export const dynamicActionRateLimiterAuth = (actionType) => {
         return limiter(req,res,next);
     };
 };
+
+export {
+    dynamicActionRateLimiterAuth,
+    dynamicActionRateLimiterVideo,
+}
