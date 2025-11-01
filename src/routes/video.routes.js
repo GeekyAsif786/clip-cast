@@ -3,7 +3,7 @@ import {deleteVideo, getAllVideos, getVideoById, getVideoBySearch, publishAVideo
 import {verifyJwt} from "../middlewares/auth.middleware.js"
 import {upload} from "../middlewares/multer.middleware.js"
 import { publishVideoRateLimiter } from '../middlewares/rateLimiters/publishVideo.rateLimiter.middleware.js';
-import { dynamicActionRateLimiter } from '../middlewares/rateLimiters/dynamicActionRateLimiter.js';
+import { dynamicActionRateLimiterVideo } from '../middlewares/rateLimiters/dynamicActionRateLimiter.js';
 import { togglePublishRateLimiter } from '../middlewares/rateLimiters/togglePublish.rateLimiter.middleware.js';
 import { videoUpdateRateLimiter } from '../middlewares/rateLimiters/updateVideo.rateLimiter.middleware.js';
 
@@ -23,7 +23,7 @@ router
                 name:"thumbnail",
                 maxCount:1,
             },
-        ]),dynamicActionRateLimiter("publishAVideo"),
+        ]),dynamicActionRateLimiterVideo("publishAVideo"),
         publishAVideo
     );
 
