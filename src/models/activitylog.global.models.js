@@ -13,4 +13,8 @@ const activityLogSchema = new Schema(
 activityLogSchema.index({ user: 1, createdAt: -1 });
 activityLogSchema.index({ target: 1, targetModel: 1 });
 activityLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 }); // 90 days
-export const ActivityLog = mongoose.model("ActivityLog", activityLogSchema);
+
+// export const ActivityLog = mongoose.model("ActivityLog", activityLogSchema);
+
+export const ActivityLog =
+  mongoose.models.ActivityLog || mongoose.model("ActivityLog", activityLogSchema);

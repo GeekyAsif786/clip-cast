@@ -1,6 +1,6 @@
 //Dynamic- changes Limits as per roles nad and action
 
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { RATE_LIMITS_VIDEO } from "../../config/rateLimits.js";
 import { RATE_LIMITS_AUTH } from "../../config/rateLimits.js";
 
@@ -17,7 +17,7 @@ const dynamicActionRateLimiterVideo = (actionType) => {
       normal: rateLimit({
         windowMs: config.window,
         max: config.normal,
-        keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+        keyGenerator: (req) => req.user?._id?.toString() || ipKeyGenerator(req),
         message: "Too many requests. Please slow down.",
         standardHeaders: true,
         legacyHeaders: false,
@@ -25,7 +25,7 @@ const dynamicActionRateLimiterVideo = (actionType) => {
       premium: rateLimit({
         windowMs: config.window,
         max: config.premium,
-        keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+        keyGenerator: (req) => req.user?._id?.toString() || ipKeyGenerator(req),
         message: "Too many requests. Please slow down.",
         standardHeaders: true,
         legacyHeaders: false,
@@ -51,7 +51,7 @@ const dynamicActionRateLimiterAuth = (actionType) => {
         const config = RATE_LIMITS_AUTH[actionType] || {
             window: 15 * 60 * 1000,
             max: 10,
-            key: (req) => req.ip,
+            key: (req) => ipKeyGenerator(req),
             message: "Too many requests, please try again later"
         };
         AuthLimiterCache[actionType] = 

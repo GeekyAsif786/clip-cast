@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import {deleteVideo, getAllVideos, getVideoById, getVideoBySearch, publishAVideo, togglePublishStatus, updateVideo} from "../controllers/video.controllers.js"
+import {deleteVideo, getVideoById, getVideoBySearch, publishAVideo, togglePublishStatus, updateVideo} from "../controllers/video.controllers.js"
 import {verifyJwt} from "../middlewares/auth.middleware.js"
 import {upload} from "../middlewares/multer.middleware.js"
 import { publishVideoRateLimiter } from '../middlewares/rateLimiters/publishVideo.rateLimiter.middleware.js';
@@ -12,7 +12,7 @@ router.use(verifyJwt);
 
 router
     .route("/")
-    .get(getAllVideos)
+    .get(getVideoBySearch)
     .post(
         upload.fields([
             {

@@ -9,12 +9,12 @@ import {
     togglePlaylistVisibility,
     updatePlaylist,
 } from "../controllers/playlist.controllers.js"
-import {verifyJWT} from "../middlewares/auth.middleware.js"
+import {verifyJwt} from "../middlewares/auth.middleware.js"
 import { updatePlaylistRateLimiter } from '../middlewares/rateLimiters/updatePlaylist.rateLimiter.middleware.js';
 
 const router = Router();
 
-router.use(verifyJWT); // Apply verifyJWT middleware to all routes in this file
+router.use(verifyJwt); // Apply verifyJWT middleware to all routes in this file
 
 router.route("/").post(createPlaylist)
 
@@ -23,7 +23,7 @@ router
     .get(getPlaylistById)
     .patch(updatePlaylistRateLimiter,updatePlaylist)
     .delete(deletePlaylist);
-router.route("/:playlistId/visibility").patch(verifyJWT,togglePlaylistVisibility)
+router.route("/:playlistId/visibility").patch(verifyJwt,togglePlaylistVisibility)
 router.route("/add/:videoId/:playlistId").patch(addVideoToPlaylist);
 router.route("/remove/:videoId/:playlistId").patch(removeVideoFromPlaylist);
 router.route("/user/:userId").get(getUserPlaylists);

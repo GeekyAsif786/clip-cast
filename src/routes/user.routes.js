@@ -17,7 +17,7 @@ router.route("/register").post(
             name:"coverImage",
             maxCount: 1
         }
-    ]),dynamicActionRateLimiterAuth("registerUser")
+    ]),dynamicActionRateLimiterAuth("registerUser"),
     registerUser)
 
 router.route("/login").post(dynamicActionRateLimiterAuth("loginUser"),loginUser)

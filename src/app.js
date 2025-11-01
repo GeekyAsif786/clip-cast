@@ -1,4 +1,16 @@
 import express from "express"
+import swaggerUi from "swagger-ui-express"
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const swaggerFile = JSON.parse(
+  readFileSync(resolve(__dirname, "../swagger_output.json"), "utf-8")
+);
+
 import cors from "cors"
 import cookieParser from "cookie-parser"
 

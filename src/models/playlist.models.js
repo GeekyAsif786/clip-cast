@@ -10,7 +10,7 @@ const playlistSchema = new Schema({
         index:true,
     },
     description:{
-        type:true,
+        type:String,
         required:false,
         trim:true,
     },
