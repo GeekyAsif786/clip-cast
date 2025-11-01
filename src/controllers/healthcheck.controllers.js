@@ -50,10 +50,6 @@ const healthcheck = asyncHandler(async (req, res) => {
         )
     );
 });
-
-export { healthcheck };
-
-
 /*
     simpler version:
 
@@ -64,5 +60,4 @@ export { healthcheck };
     });
 
 */
-
 export { healthcheck };

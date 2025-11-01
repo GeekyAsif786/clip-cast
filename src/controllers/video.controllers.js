@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { VideoView } from "../models/videoView.model.js";
+import { VideoView } from "../models/views.models.js";
 import { ActivityLog } from "../models/activitylog.global.models.js"
 import { isValidObjectId } from "mongoose";
 import {Video} from "../models/video.models.js"
