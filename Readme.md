@@ -1,6 +1,6 @@
 <h1 align="center" id="title">Clip-Cast</h1>
 
-<p align="center"><img src="https://socialify.git.ci/GeekyAsif786/clip-cast/image?custom_description=%F0%9F%93%BA+YouTube+Clone+%E2%80%93+MERN+Stack++A+full-stack+video+streaming+platform+built+with+the+MERN+stack+%28MongoDB%2C+Express%2C+React%2C+Node.js%29&amp;custom_language=Express&amp;description=1&amp;font=Raleway&amp;language=1&amp;name=1&amp;owner=1&amp;pattern=Circuit+Board&amp;theme=Dark" alt="project-image"></p>
+<p align="center"><img src="https://socialify.git.ci/GeekyAsif786/clip-cast/image?custom_description=%F0%9F%93%BA+YouTube+Clone+%E2%80%93+MERN+Stack++A+full-stack+video+streaming+platform+built+with+the+MERN+stack+%28MongoDB%2C+Express%2C+React%2C+Node.js%29&amp;custom_language=Express&amp;description=1&amp;font=Raleway&amp;language=1&amp;name=1&amp;owner=1&amp;pattern=Circuit+Board&amp;theme=Dark" alt="project-image" style="width: 70%; max-width: 700px; border-radius: 10px;"></p>
 
 <p id="description">📺 YouTube Clone – MERN Stack A full-stack video streaming platform built with the MERN stack (MongoDB Express React Node.js). Features include video upload playback likes comments and a modern UI inspired by YouTube.</p>
 
