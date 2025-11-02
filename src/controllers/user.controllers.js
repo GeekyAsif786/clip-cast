@@ -110,86 +110,144 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 
+// const loginUser = asyncHandler(async (req, res) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+
+//   try {
+//     const { email, username, password } = req.body;
+
+//     if (!username && !email) {
+//       throw new ApiError(400, "Username or email is required");
+//     }
+//     const user = await User.findOne({
+//       $or: [{ username }, { email }],
+//     }).session(session);
+
+//     if (!user) {
+//       throw new ApiError(404, "User does not exist");
+//     }
+//     const isPasswordValid = await user.isPasswordCorrect(password);
+//     if (!isPasswordValid) {
+//       throw new ApiError(401, "Invalid user credentials");
+//     }
+//     const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);
+
+//     user.refreshToken = refreshToken;
+//     await user.save({ validateBeforeSave: false, session });
+
+//     const loggedInUser = await User.findById(user._id)
+//       .select("-password -refreshToken")
+//       .session(session);
+
+//     await ActivityLog.create(
+//       [
+//         {
+//           user: user._id,
+//           action: "LOGIN_USER",
+//           target: user._id,
+//           targetModel: "User",
+//           metadata: {
+//             ip: req.ip,
+//             userAgent: req.headers["user-agent"],
+//             time: new Date(),
+//           },
+//         },
+//       ],
+//       { session }
+//     );
+
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     const options = {
+//       httpOnly: true,
+//       secure: true,
+//       sameSite: "Strict",
+//     };
+
+//     return res
+//       .status(200)
+//       .cookie("accessToken", accessToken, options)
+//       .cookie("refreshToken", refreshToken, options)
+//       .json(
+//         new ApiResponse(
+//           200,
+//           {
+//             user: loggedInUser,
+//             accessToken,
+//             refreshToken,
+//           },
+//           "User logged in successfully"
+//         )
+//       );
+//   } catch (error) {
+//     await session.abortTransaction();
+//     session.endSession();
+//     throw error;
+//   }
+//   finally {
+//     session.endSession();
+//   }
+// });
+
+
 const loginUser = asyncHandler(async (req, res) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const { email, username, password } = req.body;
 
-  try {
-    const { email, username, password } = req.body;
+  if (!username && !email) {
+    throw new ApiError(400, "Username or email is required");
+  }
 
-    if (!username && !email) {
-      throw new ApiError(400, "Username or email is required");
-    }
-    const user = await User.findOne({
-      $or: [{ username }, { email }],
-    }).session(session);
+  const user = await User.findOne({
+    $or: [{ username }, { email }],
+  });
 
-    if (!user) {
-      throw new ApiError(404, "User does not exist");
-    }
-    const isPasswordValid = await user.isPasswordCorrect(password);
-    if (!isPasswordValid) {
-      throw new ApiError(401, "Invalid user credentials");
-    }
-    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);
+  if (!user) throw new ApiError(404, "User does not exist");
 
-    user.refreshToken = refreshToken;
-    await user.save({ validateBeforeSave: false, session });
+  const isPasswordValid = await user.isPasswordCorrect(password);
+  if (!isPasswordValid) throw new ApiError(401, "Invalid user credentials");
 
-    const loggedInUser = await User.findById(user._id)
-      .select("-password -refreshToken")
-      .session(session);
+  const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);
 
-    await ActivityLog.create(
-      [
+  user.refreshToken = refreshToken;
+  await user.save({ validateBeforeSave: false });
+
+  await ActivityLog.create({
+    user: user._id,
+    action: "LOGIN_USER",
+    target: user._id,
+    targetModel: "User",
+    metadata: {
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+      time: new Date(),
+    },
+  });
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "Strict",
+  };
+
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
         {
-          user: user._id,
-          action: "LOGIN_USER",
-          target: user._id,
-          targetModel: "User",
-          metadata: {
-            ip: req.ip,
-            userAgent: req.headers["user-agent"],
-            time: new Date(),
-          },
+          user: await User.findById(user._id).select("-password -refreshToken"),
+          accessToken,
+          refreshToken,
         },
-      ],
-      { session }
+        "User logged in successfully"
+      )
     );
-
-    await session.commitTransaction();
-    session.endSession();
-
-    const options = {
-      httpOnly: true,
-      secure: true,
-      sameSite: "Strict",
-    };
-
-    return res
-      .status(200)
-      .cookie("accessToken", accessToken, options)
-      .cookie("refreshToken", refreshToken, options)
-      .json(
-        new ApiResponse(
-          200,
-          {
-            user: loggedInUser,
-            accessToken,
-            refreshToken,
-          },
-          "User logged in successfully"
-        )
-      );
-  } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    throw error;
-  }
-  finally {
-    session.endSession();
-  }
 });
+
 
 
 const logoutUser = asyncHandler(async (req, res) => {

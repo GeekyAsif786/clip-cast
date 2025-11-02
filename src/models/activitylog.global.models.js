@@ -5,7 +5,7 @@ const activityLogSchema = new Schema(
     user: { type: Schema.Types.ObjectId, ref: "User", required: true },
     action: { type: String, required: true }, // e.g., "UPDATE_TWEET"
     target: { type: Schema.Types.ObjectId, refPath: "targetModel" },
-    targetModel: { type: String, required: true, enum: ["Tweet", "Video", "Playlist"] },
+    targetModel: { type: String, required: true, enum: ["Tweet", "Video", "Playlist","User"] },
     metadata: { type: Object }, // optional: store extra info (e.g. old vs new content)
   },
   { timestamps: true }

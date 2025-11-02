@@ -1,3 +1,5 @@
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+
 export const RATE_LIMITS_VIDEO = {
   publishAVideo: { normal: 3, premium: 10, window: 10 * 60 * 1000 },
   createTweet: { normal: 5, premium: 15, window: 5 * 60 * 1000 },
