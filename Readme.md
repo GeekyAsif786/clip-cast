@@ -43,6 +43,8 @@ npm run dev
 ```
 
 <p>5. Now. your server is up and running on the PORT specified in .env file</p>
+<br>
+<p>For the routes and API endpoints, look for the swagger_output.json file</p>
 
 <h2>🍰 Contribution Guidelines:</h2>
 
