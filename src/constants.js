@@ -1,1 +1,0 @@
-export const DB_NAME = "clipnest" //name of my database
