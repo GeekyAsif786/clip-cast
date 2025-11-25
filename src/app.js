@@ -19,7 +19,7 @@ const app = express()
 
 //cors is 3rd party middleware and not included in express
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://your-app.vercel.app'],
+  origin: ['http://localhost:5173', 'https://clip-cast-xi.vercel.app/'],
   credentials: true
 }));
 
