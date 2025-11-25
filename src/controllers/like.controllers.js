@@ -283,13 +283,13 @@ const getLikedVideos = asyncHandler(async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const likes = await Like.find({
         likedBy: req.user._id,
-        video: { $exists: true, $not: { $size: 0 } }
+        video: { $exists: true, $ne: null }
     })
     .populate({
         path:"video",
         populate: {
             path:"owner",
-            select:"username",
+            select:"username avatar",
         },
         select:"title thumbnail views likeCount owner createdAt duration description"
     })
@@ -298,7 +298,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })  // Sort Like documents newest → oldest
     if (!likes || likes.length === 0) {
         return res.status(200).json(
-            new ApiResponse(200, [], "No liked videos found")
+            new ApiResponse(200, { likedVideos: [], pagination: { totalLikes: 0, totalPages: 0, currentPage: page, pageSize: limit } }, "No liked videos found")
         );
     }
     const likedVideos = likes.map(like => like.video).filter(Boolean);
@@ -306,7 +306,7 @@ const getLikedVideos = asyncHandler(async (req, res) => {
     // Get total count for frontend to know how many pages
     const totalLikes = await Like.countDocuments({
         likedBy: req.user._id,
-        video: { $exists: true, $not: { $size: 0 } }
+        video: { $exists: true, $ne: null }
     });
     const totalPages = Math.ceil(totalLikes/parseInt(limit));
     return res.status(200).json(
