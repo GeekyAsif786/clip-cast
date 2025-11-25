@@ -515,7 +515,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
             time: new Date(),
           },
         },
-      ],
+      ],  
       { session }
     );
 

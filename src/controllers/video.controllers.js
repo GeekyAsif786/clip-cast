@@ -247,6 +247,11 @@ const getVideoBySearch = asyncHandler (async (req,res) => {
     query.category = category;
   }
 
+  // Filter by userId
+  if (req.query.userId) {
+      query.owner = new mongoose.Types.ObjectId(req.query.userId);
+  }
+
   // Pagination math
   const skip = (parseInt(page,10) - 1) * parseInt(limit,10);
 
@@ -271,17 +276,107 @@ const getVideoBySearch = asyncHandler (async (req,res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    if(req.params === ""){
-        throw new ApiError(204, "field cannot be empty")
+    if(!isValidObjectId(videoId)){
+        throw new ApiError(400, "Invalid Video ID")
     }
-    const video = await Video.findById(videoId)
-    if(!video || video ===""){
+
+    const userId = req.user?._id;
+
+    const video = await Video.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(videoId)
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "owner",
+                foreignField: "_id",
+                as: "owner",
+                pipeline: [
+                    {
+                        $project: {
+                            _id: 1,
+                            username: 1,
+                            fullName: 1,
+                            avatar: 1,
+                            subscribersCount: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                owner: {
+                    $first: "$owner"
+                }
+            }
+        },
+        {
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "video",
+                as: "likes"
+            }
+        },
+        {
+            $addFields: {
+                likesCount: {
+                    $size: "$likes"
+                },
+                isLiked: {
+                    $cond: {
+                        if: { $in: [userId, "$likes.likedBy"] },
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "owner._id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            $addFields: {
+                "owner.subscribersCount": {
+                    $size: "$subscribers"
+                },
+                isSubscribed: {
+                    $cond: {
+                        if: { $in: [userId, "$subscribers.subscriber"] },
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                likes: 0,
+                subscribers: 0
+            }
+        }
+    ]);
+
+    if(!video || video.length === 0){
         throw new ApiError(404, "Video not found")
     }
-    res
+
+    // Increment views if not viewed recently (handled by recordVideoView usually, but good to return fresh data)
+    // We rely on recordVideoView for view counting, this just fetches.
+
+    return res
     .status(200)
     .json(
-        new ApiResponse(200,video,"Here are the Results:")
+        new ApiResponse(200, video[0], "Video fetched successfully")
     )
 })
 
