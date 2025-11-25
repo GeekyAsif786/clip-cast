@@ -19,9 +19,9 @@ const app = express()
 
 //cors is 3rd party middleware and not included in express
 app.use(cors({
-    origin:process.env.CORS_ORIGIN,
-    credentials:true
-}))
+  origin: ['http://localhost:5173', 'https://your-app.vercel.app'],
+  credentials: true
+}));
 
 app.use(express.json({limit: "16kb"})) //middleware to allow json requests and also a custom limit is set to accept limited json in order to avoid server crashouts
 app.use(express.urlencoded({extended: true, limit:"16kb"})) // uses encoder to encode URLs
