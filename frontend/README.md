@@ -86,6 +86,52 @@ A modern, responsive YouTube clone frontend built with React and Vite. This appl
 
    Navigate to `http://localhost:5173`
 
+## 🌐 Deployment
+
+### Deploying to Vercel
+
+1. **Set up environment variable**
+
+   In your Vercel project settings, add the following environment variable:
+   - **Key:** `VITE_API_BASE_URL`
+   - **Value:** Your backend API URL (e.g., `https://your-backend.com/api/v1`)
+
+2. **Deploy**
+
+   ```bash
+   # Using Vercel CLI
+   npm i -g vercel
+   vercel
+
+   # Or connect your GitHub repository to Vercel dashboard
+   ```
+
+3. **Configure CORS**
+
+   Make sure your backend allows requests from your Vercel domain. Update your backend CORS configuration:
+
+   ```javascript
+   // In your backend
+   app.use(
+     cors({
+       origin: "https://your-vercel-app.vercel.app",
+       credentials: true,
+     })
+   );
+   ```
+
+### Local Development with Production API
+
+If you want to test against a production backend locally:
+
+1. Create a `.env` file in the frontend directory:
+
+   ```bash
+   VITE_API_BASE_URL=https://your-backend.com/api/v1
+   ```
+
+2. Restart the dev server
+
 ## 📜 Available Scripts
 
 | Command           | Description                              |
