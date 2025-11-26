@@ -3,6 +3,7 @@ import { VideoView } from "../models/views.models.js";
 import { ActivityLog } from "../models/activitylog.global.models.js"
 import { isValidObjectId } from "mongoose";
 import {Video} from "../models/video.models.js"
+import {User} from "../models/user.models.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
@@ -21,109 +22,131 @@ const recordVideoView = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Video not found");
   }
 
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  const MAX_RETRIES = 3;
+  let retryCount = 0;
 
-  try {
-    const since = new Date(Date.now() - WINDOW_MS);
-    if (req.user && req.user._id) {
-      const recentView = await VideoView.findOne({
-        video: videoId,
-        viewer: req.user._id,
-        viewedAt: { $gt: since },
-      }).session(session);
+  while (retryCount < MAX_RETRIES) {
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-      if (recentView) {
+    try {
+      const since = new Date(Date.now() - WINDOW_MS);
+      if (req.user && req.user._id) {
+        const recentView = await VideoView.findOne({
+          video: videoId,
+          viewer: req.user._id,
+          viewedAt: { $gt: since },
+        }).session(session);
+
+        if (recentView) {
+          await session.commitTransaction();
+          session.endSession();
+          return res.status(200).json(
+            new ApiResponse(200, { viewed: false }, "Recent view already recorded")
+          );
+        }
+        await VideoView.create(
+          [
+            {
+              video: videoId,
+              viewer: req.user._id,
+              ip: req.ip,
+              userAgent: req.get("user-agent") || "",
+            },
+          ],
+          { session }
+        );
+
+        await Video.findByIdAndUpdate(
+          videoId,
+          { $inc: { views: 1 } },
+          { session }
+        );
+
+        // Add to user watch history
+        await User.findByIdAndUpdate(
+          req.user._id,
+          {
+            $addToSet: { watchHistory: videoId }
+          },
+          { session }
+        );
+
+        await ActivityLog.create(
+          [
+            {
+              user: req.user._id,
+              action: "VIEW_VIDEO",
+              target: videoId,
+              targetModel: "Video",
+              metadata: { ip: req.ip },
+            },
+          ],
+          { session }
+        );
+
         await session.commitTransaction();
         session.endSession();
+
         return res.status(200).json(
-          new ApiResponse(200, { viewed: false }, "Recent view already recorded")
+          new ApiResponse(200, { viewed: true }, "View recorded")
         );
-      }
-      await VideoView.create(
-        [
-          {
-            video: videoId,
-            viewer: req.user._id,
-            ip: req.ip,
-            userAgent: req.get("user-agent") || "",
-          },
-        ],
-        { session }
-      );
+      } else {
+        const userAgent = req.get("user-agent") || "";
+        const recentView = await VideoView.findOne({
+          video: videoId,
+          viewer: null,
+          ip: req.ip,
+          userAgent,
+          viewedAt: { $gt: since },
+        }).session(session);
 
-      await Video.findByIdAndUpdate(
-        videoId,
-        { $inc: { views: 1 } },
-        { session }
-      );
-      await ActivityLog.create(
-        [
-          {
-            user: req.user._id,
-            action: "VIEW_VIDEO",
-            target: videoId,
-            targetModel: "Video",
-            metadata: { ip: req.ip },
-          },
-        ],
-        { session }
-      );
+        if (recentView) {
+          await session.commitTransaction();
+          session.endSession();
+          return res.status(200).json(
+            new ApiResponse(200, { viewed: false }, "Recent view already recorded")
+          );
+        }
+        await VideoView.create(
+          [
+            {
+              video: videoId,
+              viewer: null,
+              ip: req.ip,
+              userAgent,
+            },
+          ],
+          { session }
+        );
 
-      await session.commitTransaction();
-      session.endSession();
-
-      return res.status(200).json(
-        new ApiResponse(200, { viewed: true }, "View recorded")
-      );
-    } else {
-      const userAgent = req.get("user-agent") || "";
-      const recentView = await VideoView.findOne({
-        video: videoId,
-        viewer: null,
-        ip: req.ip,
-        userAgent,
-        viewedAt: { $gt: since },
-      }).session(session);
-
-      if (recentView) {
+        await Video.findByIdAndUpdate(
+          videoId,
+          { $inc: { views: 1 } },
+          { session }
+        );
         await session.commitTransaction();
         session.endSession();
+
         return res.status(200).json(
-          new ApiResponse(200, { viewed: false }, "Recent view already recorded")
+          new ApiResponse(200, { viewed: true }, "View recorded")
         );
       }
-      await VideoView.create(
-        [
-          {
-            video: videoId,
-            viewer: null,
-            ip: req.ip,
-            userAgent,
-          },
-        ],
-        { session }
-      );
-
-      await Video.findByIdAndUpdate(
-        videoId,
-        { $inc: { views: 1 } },
-        { session }
-      );
-      await session.commitTransaction();
+    } catch (err) {
+      await session.abortTransaction();
       session.endSession();
+      
+      if (err.errorLabels && err.errorLabels.includes('TransientTransactionError') && retryCount < MAX_RETRIES - 1) {
+        retryCount++;
+        console.log(`Retrying transaction due to TransientTransactionError (Attempt ${retryCount})`);
+        continue; // Retry the loop
+      }
 
-      return res.status(200).json(
-        new ApiResponse(200, { viewed: true }, "View recorded")
-      );
+      console.error("recordVideoView transaction error:", err);
+      throw err instanceof ApiError
+        ? err
+        : new ApiError(500, "Failed to record view. Transaction rolled back.");
     }
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-    console.error("recordVideoView transaction error:", err);
-    throw err instanceof ApiError
-      ? err
-      : new ApiError(500, "Failed to record view. Transaction rolled back.");
   }
 });
 
@@ -257,6 +280,7 @@ const getVideoBySearch = asyncHandler (async (req,res) => {
 
   // Fetch videos from DB
   const videos = await Video.find(query)
+    .populate("owner", "username avatar fullName") // Populate owner details
     .sort({ [sortBy]: sortOrder === "desc" ? -1 : 1 }) //ternary operator structure --> condition ? exprIfTrue : exprIfFalse
     .skip(skip)
     .limit(parseInt(limit));

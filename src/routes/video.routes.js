@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import {deleteVideo, getVideoById, getVideoBySearch, publishAVideo, togglePublishStatus, updateVideo} from "../controllers/video.controllers.js"
+import {deleteVideo, getVideoById, getVideoBySearch, publishAVideo, togglePublishStatus, updateVideo, recordVideoView} from "../controllers/video.controllers.js"
 import {verifyJwt} from "../middlewares/auth.middleware.js"
 import {upload} from "../middlewares/multer.middleware.js"
 import { publishVideoRateLimiter } from '../middlewares/rateLimiters/publishVideo.rateLimiter.middleware.js';
@@ -28,6 +28,7 @@ router
     );
 
 router.route("/id/:videoId").get(getVideoById);
+router.route("/:videoId/view").post(recordVideoView);
 router.route("/search").get(getVideoBySearch);
 router.route("/:videoId").patch(videoUpdateRateLimiter,upload.single("thumbnail"), updateVideo).delete(deleteVideo);
 router.route("/toggle/publish/:videoId").patch(togglePublishRateLimiter,togglePublishStatus);
